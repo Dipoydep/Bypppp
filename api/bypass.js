@@ -16,11 +16,7 @@ module.exports = async function handler(req, res) {
     return res.status(204).end();
   }
 
-  // terima GET & POST — satu endpoint, dua jalan
-  const url =
-    req.method === "GET"
-      ? req.query.url
-      : (req.body || {}).url;
+  const url = req.method === "GET" ? req.query.url : (req.body || {}).url;
 
   if (!url || !/^https?:\/\//.test(url)) {
     return res.status(400).json({
@@ -35,7 +31,7 @@ module.exports = async function handler(req, res) {
     browser = await pw.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: true,
     });
 
     const ctx = await browser.newContext({
@@ -50,7 +46,6 @@ module.exports = async function handler(req, res) {
     await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
     await page.waitForTimeout(1200);
 
-    // rantai tombol satu per satu
     for (let i = 0; i < CHAIN.length; i++) {
       const label = CHAIN[i];
       const step = i + 1;
@@ -79,7 +74,6 @@ module.exports = async function handler(req, res) {
         .catch(() => {});
     }
 
-    // Continue to Script
     const cont = page.locator(`text=${CONTINUE_LABEL}`).first();
     if ((await cont.count()) > 0) {
       await cont.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
@@ -87,7 +81,6 @@ module.exports = async function handler(req, res) {
       await page.waitForTimeout(1200);
     }
 
-    // ekstrak
     const html = await page.content();
     const hits = [...html.matchAll(LOADSTRING_RE)].map((m) => m[1]);
 
