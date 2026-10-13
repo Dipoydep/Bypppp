@@ -9,27 +9,26 @@ const LOADSTRING_RE =
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(204).end();
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "GET only" });
   }
 
-  const url = req.method === "GET" ? req.query.url : (req.body || {}).url;
+  const url = req.query.url;
 
   if (!url || !/^https?:\/\//.test(url)) {
     return res.status(400).json({
       error: "url required",
-      usage_get: "/api/bypass?url=https://scriptpastebins.com/xxx/",
-      usage_post: '{"url":"https://scriptpastebins.com/xxx/"}',
+      usage: "/api/bypass?url=https://scriptpastebins.com/xxx/",
     });
   }
 
   let browser;
   try {
+    const args = [...chromium.args].filter((a) => !a.startsWith("--headless"));
+
     browser = await pw.launch({
-      args: chromium.args,
+      args,
       executablePath: await chromium.executablePath(),
       headless: true,
     });
@@ -59,7 +58,8 @@ module.exports = async function handler(req, res) {
         const disabled = await btn.getAttribute("disabled");
         const aria = await btn.getAttribute("aria-disabled");
         const cls = (await btn.getAttribute("class")) || "";
-        if (!disabled && aria !== "true" && !cls.toLowerCase().includes("disabled")) break;
+        if (!disabled && aria !== "true" && !cls.toLowerCase().includes("disabled"))
+          break;
         await page.waitForTimeout(200);
       }
 
