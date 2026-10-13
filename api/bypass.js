@@ -11,16 +11,12 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   if (req.method !== "GET") {
-    return res.status(405).json({ error: "GET only" });
+    return res.status(405).send("GET only");
   }
 
   const url = req.query.url;
-
   if (!url || !/^https?:\/\//.test(url)) {
-    return res.status(400).json({
-      error: "url required",
-      usage: "/api/bypass?url=https://scriptpastebins.com/xxx/",
-    });
+    return res.status(400).send("url required");
   }
 
   let browser;
@@ -82,29 +78,36 @@ module.exports = async function handler(req, res) {
     }
 
     const html = await page.content();
-    const hits = [...html.matchAll(LOADSTRING_RE)].map((m) => m[1]);
+    const urls = [...html.matchAll(LOADSTRING_RE)].map((m) => m[1]);
 
-    if (hits.length === 0) {
+    if (urls.length === 0) {
       for (const sel of ["textarea", "pre", "code"]) {
         const els = page.locator(sel);
         const n = await els.count();
         for (let j = 0; j < n; j++) {
           const txt = await els.nth(j).innerText();
           const m = LOADSTRING_RE.exec(txt);
-          if (m) hits.push(m[1]);
+          if (m) urls.push(m[1]);
         }
       }
     }
 
     await browser.close();
 
-    if (hits.length === 0) {
-      return res.status(200).json({ ok: false, message: "script ga ketemu" });
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+
+    if (urls.length === 0) {
+      return res.status(200).send("script ga ketemu");
     }
 
-    return res.status(200).json({ ok: true, scripts: hits });
+    // cuma script-nya doang, langsung
+    const out = urls
+      .map((u) => `loadstring(game:HttpGet("${u}"))()`)
+      .join("\n\n");
+
+    return res.status(200).send(out);
   } catch (err) {
     if (browser) await browser.close().catch(() => {});
-    return res.status(500).json({ ok: false, error: String(err) });
+    return res.status(500).send("error: " + String(err));
   }
 };
