@@ -7,23 +7,27 @@ const CONTINUE_LABEL = "Continue to Script";
 const LOADSTRING_RE =
   /loadstring\s*\(\s*game:HttpGet\s*\(\s*["']([^"']+)["']\s*\)\s*\)\s*\(\s*\)/g;
 
-export default async function handler(req, res) {
-  // CORS — biar bisa ditembak dari mana aja
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
     return res.status(204).end();
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "POST only" });
-  }
+  // terima GET & POST — satu endpoint, dua jalan
+  const url =
+    req.method === "GET"
+      ? req.query.url
+      : (req.body || {}).url;
 
-  const { url } = req.body || {};
   if (!url || !/^https?:\/\//.test(url)) {
-    return res.status(400).json({ error: "url required" });
+    return res.status(400).json({
+      error: "url required",
+      usage_get: "/api/bypass?url=https://scriptpastebins.com/xxx/",
+      usage_post: '{"url":"https://scriptpastebins.com/xxx/"}',
+    });
   }
 
   let browser;
@@ -102,19 +106,12 @@ export default async function handler(req, res) {
     await browser.close();
 
     if (hits.length === 0) {
-      return res.status(200).json({
-        ok: false,
-        message: "script ga ketemu",
-      });
+      return res.status(200).json({ ok: false, message: "script ga ketemu" });
     }
 
-    // balikin mentah — cuma url-nya
-    return res.status(200).json({
-      ok: true,
-      scripts: hits,
-    });
+    return res.status(200).json({ ok: true, scripts: hits });
   } catch (err) {
     if (browser) await browser.close().catch(() => {});
     return res.status(500).json({ ok: false, error: String(err) });
   }
-}
+};
